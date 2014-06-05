@@ -1,0 +1,715 @@
+Public Class Form1
+
+    Private Sub Form1_Load(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles MyBase.Load
+
+    End Sub
+
+    Private Sub Label3_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Label3.Click
+
+    End Sub
+
+    Private Sub Label1_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Label1.Click
+
+    End Sub
+
+    Private Sub TextBox2_TextChanged(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Box_OutputFile.TextChanged
+
+    End Sub
+
+    Private Sub Button1_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button1.Click
+
+        '*** InfestSample
+        '*** Version 1.10
+        '*** August 2 2013
+        '***
+        '*** For exploration of sampling schemes for determination of insect infestation
+        '***
+        '*** Copyright 2013 Stephen Heard
+        '***
+        '*** This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+        '*** the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+        '***
+        '*** This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+        '*** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details, at <http://www.gnu.org/licenses/>.
+        '***
+        '***
+        '*** Reads in a .csv file with 5 columns and any number of rows
+        '***
+        '*** Col1: site ID
+        '*** Col2: sampling unit (plant, etc.) ID
+        '*** Col3: level of attack
+        '*** Col4: X coordinate of sampling unit
+        '*** Col5: Y coordinate of sampling unit
+
+        Randomize()
+
+        '***
+        '*** Open input file and assess file size
+        '***
+        Dim InputFile As String
+        Dim InputFileLength As Integer
+        Dim NumberOfSamplingUnits As Integer
+        Dim lineoftext As String
+
+        InputFile = Box_InputFile.Text
+        FileOpen(1, InputFile, OpenMode.Input)
+        InputFileLength = 0
+        While Not EOF(1)
+            lineoftext = LineInput(1)
+            InputFileLength = InputFileLength + 1
+        End While
+        NumberOfSamplingUnits = InputFileLength - 1
+        FileClose(1)
+
+        '***
+        '*** Declare variables
+        '***
+        Dim Site(NumberOfSamplingUnits) As String
+        Dim SamplingUnit(NumberOfSamplingUnits) As Integer
+        Dim Attack(NumberOfSamplingUnits) As Single
+        Dim XCoordinate(NumberOfSamplingUnits) As Single
+        Dim UntransformedXCoordinate(NumberOfSamplingUnits) As Single
+        Dim YCoordinate(NumberOfSamplingUnits) As Single
+        Dim UntransformedYCoordinate(NumberOfSamplingUnits) As Single
+        Dim NumberofRandomizations As Integer
+        NumberofRandomizations = Box_NumRand.Text
+        Dim Randomization As Integer
+        Dim SamplingUnitCounter As Integer
+        Dim InfestationThreshold(5) As Single
+        InfestationThreshold(1) = Box_InfestationThreshold1.Text
+        InfestationThreshold(2) = Box_InfestationThreshold2.Text
+        InfestationThreshold(3) = Box_InfestationThreshold3.Text
+        InfestationThreshold(4) = Box_InfestationThreshold4.Text
+        InfestationThreshold(5) = Box_InfestationThreshold5.Text
+        Dim TrueAverage As Single
+        Dim RandomSamplingArray(NumberofRandomizations, NumberOfSamplingUnits) As Single
+        Dim OrderedSamplingArray(2, NumberOfSamplingUnits) As Single
+        Dim OrderedSamplingDeviation(2, NumberOfSamplingUnits) As Single
+        Dim RandomPick As Integer
+        Dim RunningSumOfEstimates As Single
+        Dim RunningEstimate As Single
+        Dim AverageEstimate(NumberOfSamplingUnits) As Single
+        Dim PercentCorrectDecisions(NumberOfSamplingUnits, 5) As Single
+        Dim Percentile2point5OfEstimates(NumberOfSamplingUnits) As Single
+        Dim Percentile97point5OfEstimates(NumberOfSamplingUnits) As Single
+        Dim Percentile95ofDeviations(NumberOfSamplingUnits) As Single
+        Dim Percentile95 As Integer
+        Dim Percentile2point5 As Integer
+        Dim Percentile97point5 As Integer
+        Percentile95 = Int(0.95 * NumberofRandomizations) + 1
+        Percentile2point5 = Int(0.025 * NumberofRandomizations)
+        Percentile97point5 = Int(0.975 * NumberofRandomizations) + 1
+        Dim Estimate As Single
+        Dim CountCorrect(5) As Integer
+        Dim HoldEstimateForSorting(NumberofRandomizations) As Single
+        Dim HoldDeviationForSorting(NumberofRandomizations) As Single
+        Dim Deviation As Single
+        Dim AverageAbsoluteDeviation(NumberOfSamplingUnits) As Single
+        Dim StartTransectA As Integer
+        StartTransectA = Box_StartTransectA.Text
+        Dim EndTransectA As Integer
+        EndTransectA = Box_EndTransectA.Text
+        Dim StartTransectB As Integer
+        Dim EndTransectB As Integer
+        If Box_StartTransectB.Text = "" Then
+            StartTransectB = 0
+            EndTransectB = 0
+        Else
+            StartTransectB = Box_StartTransectB.Text
+            EndTransectB = Box_EndTransectB.Text
+        End If
+        If EndTransectA > NumberOfSamplingUnits Then EndTransectA = NumberOfSamplingUnits
+        If EndTransectB > NumberOfSamplingUnits Then EndTransectB = NumberOfSamplingUnits
+        Dim Jitter As Single
+        Jitter = Box_Jitter.Text
+        Dim JitterVector(6) As Single
+        JitterVector(1) = 0
+        JitterVector(2) = 0
+        JitterVector(3) = Jitter
+        JitterVector(4) = Jitter
+        JitterVector(5) = -Jitter
+        JitterVector(6) = -Jitter
+        Dim StartX As Single
+        Dim StartY As Single
+        Dim OffsetX As Single
+        Dim OffsetY As Single
+        Dim EndX As Single
+        Dim EndY As Single
+        Dim Theta As Single
+        Dim RotatedX As Single
+        Dim RotatedY As Single
+        Dim RotatedCoordinateX(NumberOfSamplingUnits) As Single
+        Dim RotatedCoordinateY(NumberOfSamplingUnits) As Single
+        Dim Transect As Integer
+        Dim GlobalIncluded(NumberOfSamplingUnits) As Integer
+        Dim NumberOfSamplingUnitsInTransect(6) As Integer
+        Dim SortedSixTransects(200) As Integer
+        Dim EndOfSST As Integer
+        Dim PositionInSST As Integer
+        Dim TransectOfSamplingUnits(100, 2) As Single
+        Dim StartOfNeededGap As Integer
+        Dim EndOfNeededGap As Integer
+        Dim TransectsSoFar As Integer
+        Dim SamplingUnitID As Integer
+
+        '***
+        '*** Reopen input file and read in data
+        '***
+        FileOpen(1, InputFile, OpenMode.Input)
+        '*** Read in and discard the row for column titles
+        lineoftext = LineInput(1)
+        '*** Now read in the real data
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            Input(1, Site(SamplingUnitCounter))
+            Input(1, SamplingUnit(SamplingUnitCounter))
+            Input(1, Attack(SamplingUnitCounter))
+            Input(1, XCoordinate(SamplingUnitCounter))
+            Input(1, YCoordinate(SamplingUnitCounter))
+        Next SamplingUnitCounter
+        FileClose(1)
+
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            UntransformedXCoordinate(SamplingUnitCounter) = XCoordinate(SamplingUnitCounter)
+            UntransformedYCoordinate(SamplingUnitCounter) = YCoordinate(SamplingUnitCounter)
+        Next SamplingUnitCounter
+
+        '***
+        '*** Calculate true average attack
+        '***
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            TrueAverage = TrueAverage + Attack(SamplingUnitCounter)
+        Next SamplingUnitCounter
+        TrueAverage = TrueAverage / NumberOfSamplingUnits
+
+        '***
+        '*** Simulate random sampling (with replacement) and save infestation estimates to RandomSamplingArray
+        '***
+        For Randomization = 1 To NumberofRandomizations
+            RunningSumOfEstimates = 0
+            For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                RandomPick = CInt(Int(Rnd() * NumberOfSamplingUnits) + 1)
+                RunningSumOfEstimates = RunningSumOfEstimates + Attack(RandomPick)
+                RunningEstimate = RunningSumOfEstimates / SamplingUnitCounter
+                RandomSamplingArray(Randomization, SamplingUnitCounter) = RunningEstimate
+            Next SamplingUnitCounter
+        Next Randomization
+
+        '***
+        '*** Calculate average and 95th percentile for absolute deviation of estimates from true mean, for each sample size
+        '*** for comparison with ordered sampling
+        '***
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            For Randomization = 1 To NumberofRandomizations
+                Deviation = Math.Abs(RandomSamplingArray(Randomization, SamplingUnitCounter) - TrueAverage)
+                HoldDeviationForSorting(Randomization) = Deviation
+                AverageAbsoluteDeviation(SamplingUnitCounter) = AverageAbsoluteDeviation(SamplingUnitCounter) + Deviation
+            Next Randomization
+            AverageAbsoluteDeviation(SamplingUnitCounter) = AverageAbsoluteDeviation(SamplingUnitCounter) / NumberofRandomizations
+            Array.Sort(HoldDeviationForSorting)
+            Percentile95ofDeviations(SamplingUnitCounter) = HoldDeviationForSorting(Percentile95)
+        Next SamplingUnitCounter
+
+        '***
+        '*** Now extract averages of all estimates, % correct decisions on InfestationThreshold,
+        '*** 2.5th percentile of estimates, and 97.5th percentile of estimates
+        '***
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            RunningSumOfEstimates = 0
+            For counter = 1 To 5
+                CountCorrect(counter) = 0
+            Next counter
+            For Randomization = 1 To NumberofRandomizations
+                Estimate = RandomSamplingArray(Randomization, SamplingUnitCounter)
+                RunningSumOfEstimates = RunningSumOfEstimates + Estimate
+                For counter = 1 To 5
+                    If (Estimate - InfestationThreshold(counter)) * (Math.Sign(TrueAverage - InfestationThreshold(counter))) > 0 Then CountCorrect(counter) = CountCorrect(counter) + 1
+                Next counter
+                HoldEstimateForSorting(Randomization) = Estimate
+            Next Randomization
+
+            '*** Calculate the average of all estimates for this number of sampling units (should be statistically equal to TrueAverage)
+            AverageEstimate(SamplingUnitCounter) = RunningSumOfEstimates / NumberofRandomizations
+
+            '*** Calculate % correct decisions for each of 5 infestation thresholds for this number of sampling units
+            For counter = 1 To 5
+                PercentCorrectDecisions(SamplingUnitCounter, counter) = CountCorrect(counter) / NumberofRandomizations * 100
+            Next counter
+
+            '*** Find 2.5th and 97.5th percentiles of the estimates for this number of sampling units
+            Array.Sort(HoldEstimateForSorting)
+            Percentile2point5OfEstimates(SamplingUnitCounter) = HoldEstimateForSorting(Percentile2point5)
+            Percentile97point5OfEstimates(SamplingUnitCounter) = HoldEstimateForSorting(Percentile97point5)
+        Next SamplingUnitCounter
+
+        '***
+        '*** Simulate sampling in labelled order (and backwards) and save infestation estimates to OrderedSamplingArray
+        '***
+        RunningSumOfEstimates = 0
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            RunningSumOfEstimates = RunningSumOfEstimates + Attack(SamplingUnitCounter)
+            RunningEstimate = RunningSumOfEstimates / SamplingUnitCounter
+            OrderedSamplingArray(1, SamplingUnitCounter) = RunningEstimate
+            OrderedSamplingDeviation(1, SamplingUnitCounter) = Math.Abs(RunningEstimate - TrueAverage)
+        Next SamplingUnitCounter
+
+        RunningSumOfEstimates = 0
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            RunningSumOfEstimates = RunningSumOfEstimates + Attack(NumberOfSamplingUnits - SamplingUnitCounter + 1)
+            RunningEstimate = RunningSumOfEstimates / SamplingUnitCounter
+            OrderedSamplingArray(2, SamplingUnitCounter) = RunningEstimate
+            OrderedSamplingDeviation(2, SamplingUnitCounter) = Math.Abs(RunningEstimate - TrueAverage)
+        Next SamplingUnitCounter
+
+        '***
+        '*** Simulate sampling along 3 parallel 10m wide transects
+        '*** Beginning and end of 1st transect are user-defined by sampling unit number
+        '*** There MAY be two sub-transects, A and B, so we use indices 1, 3, 5 for As and 2, 4, 6 for Bs.
+        '*** the 3 transects are spaced apart by "jitter" metres
+        '***
+        '*** Run transect A1 from start sampling unit to end sampling unit
+        '*** and A2 and A3 'jitter" metres to left and right
+        '***
+        StartX = YCoordinate(StartTransectA)
+        StartY = XCoordinate(StartTransectA)
+        EndX = YCoordinate(EndTransectA)
+        EndY = XCoordinate(EndTransectA)
+        '*** stretch the transect a little bit to make sure start and end sampling unit are actually included
+        If EndX > StartX Then
+            StartX = StartX - 1
+            EndX = EndX + 1
+        Else
+            StartX = StartX + 1
+            EndX = EndX - 1
+        End If
+
+        '*** Transform coordinate system so that (StartX, StartY) becomes (0,0) and (EndX, EndY) becomes (EndX', 0)
+        '*** first subtract (StartX, StartY) from each data point to put Start at origin
+        '***
+        OffsetX = StartX
+        OffsetY = StartY
+        StartX = StartX - OffsetX
+        StartY = StartY - OffsetY
+        EndX = EndX - OffsetX
+        EndY = EndY - OffsetY
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            YCoordinate(SamplingUnitCounter) = YCoordinate(SamplingUnitCounter) - OffsetX
+            XCoordinate(SamplingUnitCounter) = XCoordinate(SamplingUnitCounter) - OffsetY
+        Next SamplingUnitCounter
+        '*** now reflect in X and/or Y as needed to make sure End falls in quadrant I
+        If EndX < 0 Then
+            EndX = -EndX
+            For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                YCoordinate(SamplingUnitCounter) = -YCoordinate(SamplingUnitCounter)
+            Next SamplingUnitCounter
+        End If
+        If EndY < 0 Then
+            EndY = -EndY
+            For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                XCoordinate(SamplingUnitCounter) = -XCoordinate(SamplingUnitCounter)
+            Next SamplingUnitCounter
+        End If
+        '*** now rotate coordinate system to place (EndX, EndY) at Y=0
+        '*** theta is needed angle of rotation for each point
+        '*** negative is clockwise (should always be negative, because working in quadrant 1)
+        Theta = -Math.Atan(EndY / EndX)
+        RotatedX = EndX * Math.Cos(Theta) - EndY * Math.Sin(Theta)
+        RotatedY = EndX * Math.Sin(Theta) + EndY * Math.Cos(Theta)
+        EndX = RotatedX
+        EndY = RotatedY
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            RotatedX = YCoordinate(SamplingUnitCounter) * Math.Cos(Theta) - XCoordinate(SamplingUnitCounter) * Math.Sin(Theta)
+            RotatedY = YCoordinate(SamplingUnitCounter) * Math.Sin(Theta) + XCoordinate(SamplingUnitCounter) * Math.Cos(Theta)
+            RotatedCoordinateX(SamplingUnitCounter) = RotatedX
+            RotatedCoordinateY(SamplingUnitCounter) = RotatedY
+        Next SamplingUnitCounter
+
+        '*** Check sampling units to see if they are included in transect 1, 3, and 5
+        '*** they are included in centre transect if StartX<X<EndX and -5<Y<5
+        For Transect = 1 To 5 Step 2
+            For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                If (JitterVector(Transect) - 5) < RotatedCoordinateY(SamplingUnitCounter) And RotatedCoordinateY(SamplingUnitCounter) < (JitterVector(Transect) + 5) Then
+                    GlobalIncluded(SamplingUnitCounter) = 1
+                    NumberOfSamplingUnitsInTransect(Transect) = NumberOfSamplingUnitsInTransect(Transect) + 1
+                    TransectOfSamplingUnits(NumberOfSamplingUnitsInTransect(Transect), 1) = SamplingUnitCounter
+                    TransectOfSamplingUnits(NumberOfSamplingUnitsInTransect(Transect), 2) = RotatedCoordinateX(SamplingUnitCounter)
+                End If
+            Next SamplingUnitCounter
+
+            '*** now stick "9999999999" for longitude in remaining places of TransectOfsampling units array
+            For SamplingUnitCounter = NumberOfSamplingUnitsInTransect(Transect) + 1 To 100
+                TransectOfSamplingUnits(SamplingUnitCounter, 2) = 9999999999
+            Next SamplingUnitCounter
+
+            '*** now sort by X, to put them in order of their occurence in the sampling
+            TransectOfSamplingUnits = SortedArray(TransectOfSamplingUnits, 2)
+
+            '*** now load into SortedSixTransects array
+            '*** and keep track of end of the array in EndofSST
+            For SamplingUnitCounter = 1 To NumberOfSamplingUnitsInTransect(Transect)
+                SortedSixTransects(EndOfSST + SamplingUnitCounter) = TransectOfSamplingUnits(SamplingUnitCounter, 1)
+            Next SamplingUnitCounter
+            EndOfSST = EndOfSST + NumberOfSamplingUnitsInTransect(Transect)
+        Next Transect
+
+        '*** Now do the B transects, if needed
+        '*** code is basically a copy of the A transect code
+        If StartTransectB > 0 Then
+            StartX = YCoordinate(StartTransectB)
+            StartY = XCoordinate(StartTransectB)
+            EndX = YCoordinate(EndTransectB)
+            EndY = XCoordinate(EndTransectB)
+            '*** stretch the transect a little bit to make sure start and end sampling unit are actually included
+            If EndX > StartX Then
+                StartX = StartX - 1
+                EndX = EndX + 1
+            Else
+                StartX = StartX + 1
+                EndX = EndX - 1
+            End If
+
+            '*** Transform coordinate system so that (StartX, StartY) becomes (0,0) and (EndX, EndY) becomes (EndX', 0)
+            '*** first subtract (StartX, StartY) from each data point to put Start at origin
+            '***
+            OffsetX = StartX
+            OffsetY = StartY
+            StartX = StartX - OffsetX
+            StartY = StartY - OffsetY
+            EndX = EndX - OffsetX
+            EndY = EndY - OffsetY
+            For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                YCoordinate(SamplingUnitCounter) = YCoordinate(SamplingUnitCounter) - OffsetX
+                XCoordinate(SamplingUnitCounter) = XCoordinate(SamplingUnitCounter) - OffsetY
+            Next SamplingUnitCounter
+            '*** now reflect in X and/or Y as needed to make sure End falls in quadrant I
+            If EndX < 0 Then
+                EndX = -EndX
+                For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                    YCoordinate(SamplingUnitCounter) = -YCoordinate(SamplingUnitCounter)
+                Next SamplingUnitCounter
+            End If
+            If EndY < 0 Then
+                EndY = -EndY
+                For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                    XCoordinate(SamplingUnitCounter) = -XCoordinate(SamplingUnitCounter)
+                Next SamplingUnitCounter
+            End If
+            '*** then rotate coordinate system to place (EndX, EndY) at Y=0
+            '*** theta is needed angle of rotation for each point
+            '*** negative is clockwise (should always be negative, because working in quadrant 1)
+            Theta = -Math.Atan(EndY / EndX)
+            RotatedX = EndX * Math.Cos(Theta) - EndY * Math.Sin(Theta)
+            RotatedY = EndX * Math.Sin(Theta) + EndY * Math.Cos(Theta)
+            EndX = RotatedX
+            EndY = RotatedY
+            For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                RotatedX = YCoordinate(SamplingUnitCounter) * Math.Cos(Theta) - XCoordinate(SamplingUnitCounter) * Math.Sin(Theta)
+                RotatedY = YCoordinate(SamplingUnitCounter) * Math.Sin(Theta) + XCoordinate(SamplingUnitCounter) * Math.Cos(Theta)
+                RotatedCoordinateX(SamplingUnitCounter) = RotatedX
+                RotatedCoordinateY(SamplingUnitCounter) = RotatedY
+            Next SamplingUnitCounter
+
+            '*** now check sampling units to see if they are included in transect 2, 4, and 6
+            '*** they are included in centre transect if StartX<X<EndX and -5<Y<5
+            For Transect = 2 To 6 Step 2
+                For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+                    If (JitterVector(Transect) - 5) < RotatedCoordinateY(SamplingUnitCounter) And RotatedCoordinateY(SamplingUnitCounter) < (JitterVector(Transect) + 5) Then
+                        GlobalIncluded(SamplingUnitCounter) = 1
+                        NumberOfSamplingUnitsInTransect(Transect) = NumberOfSamplingUnitsInTransect(Transect) + 1
+                        TransectOfSamplingUnits(NumberOfSamplingUnitsInTransect(Transect), 1) = SamplingUnitCounter
+                        TransectOfSamplingUnits(NumberOfSamplingUnitsInTransect(Transect), 2) = RotatedCoordinateX(SamplingUnitCounter)
+                    End If
+                Next SamplingUnitCounter
+
+                '*** now stick "9999999999" for longitude in remaining places of TransectOfsampling units array
+                For SamplingUnitCounter = NumberOfSamplingUnitsInTransect(Transect) + 1 To 100
+                    TransectOfSamplingUnits(SamplingUnitCounter, 2) = 9999999999
+                Next SamplingUnitCounter
+                '*** now sort by X, to put them in order of their occurence in the sampling
+                TransectOfSamplingUnits = SortedArray(TransectOfSamplingUnits, 2)
+
+                '*** now load into SortedSixTransects array
+                '*** first moving elements for A transects to make room
+                '*** so that B1 comes after A1, B2 after A2, B3 after A3
+                '*** need to make room for NumberOfSamplingUnitsInTransect(Transect) new elements in the array
+
+                '*** calculate StartOfNeededGap to be the needed spot of the first element
+                '*** e.g. if this is transect 2, then that's right after length of transect 1, etc.
+                StartOfNeededGap = 0
+                For TransectsSoFar = 1 To Transect - 1
+                    StartOfNeededGap = StartOfNeededGap + NumberOfSamplingUnitsInTransect(TransectsSoFar)
+                Next TransectsSoFar
+                StartOfNeededGap = StartOfNeededGap + 1
+                EndOfNeededGap = StartOfNeededGap + NumberOfSamplingUnitsInTransect(Transect) - 1
+
+                '*** now move all later elements up to make room
+                EndOfSST = EndOfSST + NumberOfSamplingUnitsInTransect(Transect)
+                For SamplingUnitCounter = EndOfSST To EndOfNeededGap + 1 Step -1
+                    SortedSixTransects(SamplingUnitCounter) = SortedSixTransects(SamplingUnitCounter - NumberOfSamplingUnitsInTransect(Transect))
+                Next SamplingUnitCounter
+
+                '*** now load in the transect where room has been made
+                PositionInSST = StartOfNeededGap
+                For SamplingUnitCounter = 1 To NumberOfSamplingUnitsInTransect(Transect)
+                    SortedSixTransects(PositionInSST) = TransectOfSamplingUnits(SamplingUnitCounter, 1)
+                    PositionInSST = PositionInSST + 1
+                Next SamplingUnitCounter
+            Next Transect
+        End If
+
+        '***
+        '*** Simulate sampling of sampling units along the transects and save infestation estimates to TransectSamplingArray
+        '***
+        Dim TransectSamplingArray(EndOfSST) As Single
+        Dim TransectSamplingDeviation(EndOfSST) As Single
+        RunningSumOfEstimates = 0
+        For SamplingUnitCounter = 1 To EndOfSST
+            SamplingUnitID = SortedSixTransects(SamplingUnitCounter)
+            RunningSumOfEstimates = RunningSumOfEstimates + Attack(SamplingUnitID)
+            RunningEstimate = RunningSumOfEstimates / SamplingUnitCounter
+            TransectSamplingArray(SamplingUnitCounter) = RunningEstimate
+            TransectSamplingDeviation(SamplingUnitCounter) = Math.Abs(RunningEstimate - TrueAverage)
+        Next SamplingUnitCounter
+
+        '***
+        '*** Output
+        '***
+
+        Dim OutputFile As String
+        OutputFile = Box_OutputFile.Text
+        Dim MapFile As String
+        MapFile = Box_MapFile.Text
+        FileOpen(1, OutputFile, OpenMode.Output)
+        lineoftext = "Sequential Sampling Version 1.00      " & Date.Now
+        WriteLine(1, lineoftext)
+        WriteLine(1)
+        Write(1, "Using data file:   ")
+        WriteLine(1, OutputFile)
+        Write(1, "True average attack:  ")
+        WriteLine(1, TrueAverage)
+        Write(1, "Number of replications:  ")
+        Write(1, NumberofRandomizations)
+        WriteLine(1)
+        Write(1, "Transect A:")
+        Write(1, StartTransectA)
+        WriteLine(1, EndTransectA)
+        Write(1, "Transect B:")
+        Write(1, StartTransectB)
+        WriteLine(1, EndTransectB)
+        Write(1, "Jitter:")
+        WriteLine(1, Jitter)
+        Write(1, "Infestation thresholds:")
+        For i = 1 To 5
+            Write(1, InfestationThreshold(i))
+        Next i
+        WriteLine(1)
+
+
+
+        '*** Now output:
+        '*** Col1: number of sampling units sampled
+        '*** Col2: estimates for first randomization, as a sample
+        '*** Col3: estimates for second randomization, as another sample
+        '*** Col4: average of all estimates, as a check to compare to TrueAverage
+        '*** Cols 5, 6, 7, 8, 9: percentage of correct decisions, whether or not infestation > InfestationThreshold1
+        '*** Col10: 2.5th percentile of estimates, = lower 95% confidence limit
+        '*** Col11: 97.5th percentile of estimates, = upper 95% confidence limit
+        '*** Col12: true average (same for all rows, used for plotting)
+        '*** Col13: average absolute deviation of estimate from true mean
+        '*** Col14: 95th percentile of absolute deviations of estimates from true mean
+        '*** Col15: estimate for ordered sampling, counting up
+        '*** Col16: estimate for ordered sampling, counting down
+        '*** Col17: deviation for ordered sampling, counting up
+        '*** Col18: deviation for ordered sampling, counting down
+        '*** Col19: estimate for transect sampling
+        '*** Col20: deviation for transect sampling
+        Write(1, "Number of sampling units")
+        Write(1, "Rand1 infestation estimate")
+        Write(1, "Rand2 infestation estimate")
+        Write(1, "Average estimate")
+        Write(1, "Percent correct vs. threshold1")
+        Write(1, "Percent correct vs. threshold2")
+        Write(1, "Percent correct vs. threshold3")
+        Write(1, "Percent correct vs. threshold4")
+        Write(1, "Percent correct vs. threshold5")
+        Write(1, "2.5th percentile of estimates")
+        Write(1, "97.5th percentile of estimates")
+        Write(1, "True average")
+        Write(1, "average absolute deviation")
+        Write(1, "95th percentile deviation")
+        Write(1, "OrderUp infestation estimate")
+        Write(1, "OrderDown infestation estimate")
+        Write(1, "OrderUp deviation")
+        Write(1, "OrderDown deviation")
+        Write(1, "Transect estimate")
+        Write(1, "Transect deviation")
+        WriteLine(1)
+
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+            Write(1, SamplingUnitCounter)
+            Write(1, RandomSamplingArray(1, SamplingUnitCounter))
+            Write(1, RandomSamplingArray(2, SamplingUnitCounter))
+            Write(1, AverageEstimate(SamplingUnitCounter))
+            For counter = 1 To 5
+                Write(1, PercentCorrectDecisions(SamplingUnitCounter, counter))
+            Next counter
+            Write(1, Percentile2point5OfEstimates(SamplingUnitCounter))
+            Write(1, Percentile97point5OfEstimates(SamplingUnitCounter))
+            Write(1, TrueAverage)
+            Write(1, AverageAbsoluteDeviation(SamplingUnitCounter))
+            Write(1, Percentile95ofDeviations(SamplingUnitCounter))
+            Write(1, OrderedSamplingArray(1, SamplingUnitCounter))
+            Write(1, OrderedSamplingArray(2, SamplingUnitCounter))
+            Write(1, OrderedSamplingDeviation(1, SamplingUnitCounter))
+            Write(1, OrderedSamplingDeviation(2, SamplingUnitCounter))
+            If SamplingUnitCounter <= EndOfSST Then
+                Write(1, TransectSamplingArray(SamplingUnitCounter))
+                Write(1, TransectSamplingDeviation(SamplingUnitCounter))
+            Else
+                Write(1, "NA")
+                Write(1, "NA")
+            End If
+            WriteLine(1)
+        Next SamplingUnitCounter
+        FileClose(1)
+
+        '*** Output file with map of transects
+        FileOpen(1, MapFile, OpenMode.Output)
+        lineoftext = "Sequential Sampling Version 1.00      " & Date.Now
+        WriteLine(1, lineoftext)
+        WriteLine(1)
+        Write(1, "Using data file:   ")
+        WriteLine(1, OutputFile)
+        WriteLine(1)
+        '***
+        '*** Now output:
+        '*** Col1: sampling unit number
+        '*** Col2: untransformed X coordinate (longitude in metres)
+        '*** Col3: untransformed Y coordinate (latitude in metres)
+        '*** Col4: sampling unit included (1) or excluded (0)
+        Write(1, "sampling unit number")
+        Write(1, "longitude in metres")
+        Write(1, "latitude in metres")
+        Write(1, "included in a transect?")
+        WriteLine(1)
+
+        For SamplingUnitCounter = 1 To NumberOfSamplingUnits
+
+            Write(1, SamplingUnitCounter)
+            Write(1, UntransformedYCoordinate(SamplingUnitCounter))
+            Write(1, UntransformedXCoordinate(SamplingUnitCounter))
+            Write(1, GlobalIncluded(SamplingUnitCounter))
+            WriteLine(1)
+        Next SamplingUnitCounter
+        WriteLine(1)
+
+        FileClose(1)
+        MessageBox.Show("Execution completed")
+        End
+
+    End Sub
+
+    Function SortedArray(ByVal ArrayName As Array, ByVal ColumnForSort As Integer)
+        '*** takes as input an array 
+        '*** bubble-sorts it by desired column
+        '*** then returns the sorted array to the main program
+        Dim NumberOfRows As Integer
+        Dim NumberOfColumns As Integer
+        Dim row As Integer
+        Dim comparerow As Integer
+        Dim column As Integer
+        NumberOfRows = ArrayName.GetUpperBound(0)
+        NumberOfColumns = ArrayName.GetUpperBound(1)
+        For row = 1 To NumberOfRows - 1
+            For comparerow = row + 1 To NumberOfRows
+                If ArrayName(row, ColumnForSort) > ArrayName(comparerow, ColumnForSort) Then
+                    For column = 1 To NumberOfColumns
+                        SwapSingle(ArrayName(row, column), ArrayName(comparerow, column))
+                    Next
+                End If
+            Next comparerow
+        Next row
+        SortedArray = ArrayName
+    End Function
+
+    Sub SwapSingle(ByRef item1, ByRef item2)
+        '***
+        '*** items are of type single
+        '***
+        Dim holder As Single
+        holder = item1
+        item1 = item2
+        item2 = holder
+    End Sub
+
+    Private Sub Label4_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Label4.Click
+
+    End Sub
+
+    Private Sub Label5_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Label5.Click
+
+    End Sub
+
+    Private Sub Label10_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Label10.Click
+
+    End Sub
+
+    Private Sub Label12_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Label12.Click
+
+    End Sub
+
+    Private Sub TextBox2_TextChanged_1(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Box_StartTransectB.TextChanged
+
+    End Sub
+
+    Private Sub Box_InputFile_TextChanged(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Box_InputFile.TextChanged
+
+    End Sub
+
+    Private Sub Button2_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button2.Click
+        Dim ofd As New OpenFileDialog
+        If ofd.ShowDialog() = Windows.Forms.DialogResult.OK Then
+            Box_InputFile.Text = ofd.FileName
+        End If
+    End Sub
+
+    Private Sub Button3_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button3.Click
+        Dim ofd As New OpenFileDialog
+        If ofd.ShowDialog() = Windows.Forms.DialogResult.OK Then
+            Box_OutputFile.Text = ofd.FileName
+        End If
+    End Sub
+
+    Private Sub Button4_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button4.Click
+        Dim ofd As New OpenFileDialog
+        If ofd.ShowDialog() = Windows.Forms.DialogResult.OK Then
+            Box_MapFile.Text = ofd.FileName
+        End If
+    End Sub
+
+    Private Sub Button5_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button5.Click
+        Dim file_path As String = "Help\InfestSampleHelp.htm"
+        System.Diagnostics.Process.Start(file_path)
+    End Sub
+
+    Private Sub Label14_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Label14.Click
+
+    End Sub
+
+    Private Sub Button6_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button6.Click
+        Dim fbd As New FolderBrowserDialog
+        fbd.RootFolder = Environment.SpecialFolder.MyComputer
+        If fbd.ShowDialog = DialogResult.OK Then
+            Box_OutputFile.Text = fbd.SelectedPath
+        End If
+    End Sub
+
+    Private Sub Button7_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button7.Click
+        Dim fbd As New FolderBrowserDialog
+        fbd.RootFolder = Environment.SpecialFolder.MyComputer
+        If fbd.ShowDialog = DialogResult.OK Then
+            Box_MapFile.Text = fbd.SelectedPath
+        End If
+    End Sub
+End Class
+
+

@@ -1,0 +1,85 @@
+R scripts used in our analyses (samples for only one site’s data):
+
+1. Testing for spatial autocorrelation: Mantel.R
+
+#Mantel.R
+install.packages("ade4")
+library(ade4)
+siteAdata<-read.csv("c:/data/site A input.csv", header=TRUE)
+tree.distances <-dist(cbind(siteAdata$Lat_m_46, siteAdata$Long_m_66))
+infest.distances <-dist(siteAdata$Percent_galled)
+mantel.rtest(tree.distances, infest.distances, nrepet=9999)
+
+2. Visualizing spatial autocorrelation: Variogram.R
+
+#Variogram.R
+install.packages("geoR")
+library(geoR)
+siteAdata<-read.csv("c:/data/site A input.csv", header=TRUE)
+tree.distances <-dist(cbind(siteAdata$Lat_m_46, siteAdata$Long_m_66))
+summary(tree.distances)
+breaks <- seq(0, 400, length.out = 41)
+variogramA <- variog(coords=siteAdata[,11:12], data=siteAdata[,6], breaks=breaks)
+variogramA.summary <- cbind(c(1:40), variogramA$v, variogramA$n)
+colnames(variogramA.summary)<- c("lag", "semi-variance", "# pairs")
+variogramA.summary
+plot(variogramA, type="b", main = "Variogram: Site A infestation")
+
+3. Fit to standard statistical distributions and assess goodness-of-fit: Normal.R, NegBin.R
+
+#Normal.R
+siteAdata<-read.csv("c:/data/site A input.csv", header=TRUE)
+Apercent.galling <-siteAdata[,6]
+mean(Apercent.galling)
+var(Apercent.galling)
+sd(Apercent.galling)
+shapiro.test(Apercent.galling)
+hist(Apercent.galling, breaks=20)
+
+
+#Negbin.R
+install.packages("MASS")
+library(MASS)
+  result<-fitdistr(siteAdata, "negative binomial")
+  result
+install.packages("vcd")
+library(vcd)
+siteAdata<-read.csv("c:/data/site A input.csv", header=TRUE)
+Apercent.galling <-siteAdata[,6]
+rounded <-round(Apercent.galling)
+gf1<-goodfit(rounded,type="nbinomial")
+gf1
+summary(gf1)
+plot(gf1)
+
+5. Test ability to estimate negative-binomial k for subsamples: SubSampleK.R
+
+#SubSampleK.R
+install.packages("MASS")
+library(MASS)
+siteAdata<-read.csv("c:/data/site A input.csv", header=TRUE)
+percentgalled <-round(siteAdata[,6])
+  result<-fitdistr(siteAdata, "negative binomial")
+  result
+kestimates<-numeric(100)
+for(i in 1:100)
+  {
+  subsample<-sample(percentgalled,20, replace=T)
+  result<-fitdistr(subsample, "negative binomial")
+  kestimates[i]<-coef(result)[1]
+  }
+write(kestimates, "/data/siteAresamplingK20s.txt", sep="\n")
+for(i in 1:100)
+  {
+  subsample<-sample(percentgalled,50, replace=T)
+  result<-fitdistr(subsample, "negative binomial")
+  kestimates[i]<-coef(result)[1]
+  }
+write(kestimates, "/data/siteAresamplingK50s.txt", sep="\n")
+for(i in 1:100)
+  {
+  subsample<-sample(percentgalled,100, replace=T)
+  result<-fitdistr(subsample, "negative binomial")
+  kestimates[i]<-coef(result)[1]
+  }
+write(kestimates, "/data/siteAresamplingK100s.txt", sep="\n")
